@@ -1,48 +1,61 @@
+
 'use client';
 
 import { useState } from 'react';
 import { Header } from '@/components/fridge-chef/Header';
 import { IngredientInputForm } from '@/components/fridge-chef/IngredientInputForm';
 import { RecipeDisplay } from '@/components/fridge-chef/RecipeDisplay';
-import { DietaryFilter, filterResultContent } from '@/components/fridge-chef/DietaryFilter';
+import { DietaryFilter } from '@/components/fridge-chef/DietaryFilter';
 import type { Recipe } from '@/lib/types';
-import { generateRecipe, type GenerateRecipeInput } from '@/ai/flows/generate-recipe';
+import { generateRecipe, type GenerateRecipeInput as AIInputType } from '@/ai/flows/generate-recipe';
 import { filterRecipes } from '@/ai/flows/filter-recipes';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+// Wrapper type because AIInputType is just ingredients, but we need to pass language from page
+interface FormInputValues {
+  ingredients: string;
+}
+
 
 export default function FridgeChefPage() {
+  const { t, language } = useLanguage();
   const [generatedRecipe, setGeneratedRecipe] = useState<Recipe | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [filterCheckResult, setFilterCheckResult] = useState<keyof typeof filterResultContent | null>(null);
+  const [filterCheckResult, setFilterCheckResult] = useState<keyof ReturnType<typeof import('@/components/fridge-chef/DietaryFilter')['getFilterResultContent']> | null>(null);
+
 
   const { toast } = useToast();
 
-  const handleGenerateRecipe = async (values: GenerateRecipeInput) => {
+  const handleGenerateRecipe = async (values: FormInputValues) => {
     setIsGenerating(true);
-    setGeneratedRecipe(null); // Clear previous recipe
-    setFilterCheckResult(null); // Clear previous filter result
+    setGeneratedRecipe(null); 
+    setFilterCheckResult(null); 
     try {
-      const recipeOutput = await generateRecipe({ ingredients: values.ingredients });
+      const recipeOutput = await generateRecipe({ 
+        ingredients: values.ingredients,
+        language: language === 'ar' ? 'Arabic' : 'English' 
+      });
       setGeneratedRecipe(recipeOutput);
       if (recipeOutput.missingIngredients && recipeOutput.missingIngredients.length > 0 && (!recipeOutput.instructions || recipeOutput.instructions.length === 0)) {
         toast({
-          title: 'Suggestions Provided!',
-          description: 'We found some items you could add to make a great recipe.',
+          title: t('suggestionsProvidedToastTitle'),
+          description: t('suggestionsProvidedToastDescription'),
           variant: 'default',
         });
       } else {
         toast({
-          title: 'Recipe Generated!',
-          description: `Chef's special: ${recipeOutput.title}`,
+          title: t('recipeGeneratedToastTitle'),
+          description: t('recipeGeneratedToastDescription', { title: recipeOutput.title }),
           variant: 'default',
         });
       }
     } catch (error) {
       console.error('Error generating recipe:', error);
       toast({
-        title: 'Error',
-        description: 'Could not generate recipe. Please try again.',
+        title: t('errorTitle'),
+        description: t('errorGeneratingRecipe'),
         variant: 'destructive',
       });
       setGeneratedRecipe(null);
@@ -62,7 +75,11 @@ export default function FridgeChefPage() {
     setFilterCheckResult(null); 
     try {
       const filterInput = {
-        recipes: [generatedRecipe.title],
+        // Note: Recipe title might be in Arabic or English.
+        // The filterRecipes flow currently doesn't account for language of the recipe title.
+        // For a more robust solution, filterRecipes might also need a language hint or operate on language-agnostic identifiers if possible.
+        // For now, we pass the title as is.
+        recipes: [generatedRecipe.title], 
         dietaryRestrictions: dietaryRestrictions,
       };
       const filterOutput = await filterRecipes(filterInput);
@@ -74,8 +91,8 @@ export default function FridgeChefPage() {
     } catch (error) {
       console.error('Error filtering recipe:', error);
       toast({
-        title: 'Error',
-        description: 'Could not check recipe suitability. Please try again.',
+        title: t('errorTitle'),
+        description: t('errorFilteringRecipe'),
         variant: 'destructive',
       });
       setFilterCheckResult(null);
@@ -84,7 +101,7 @@ export default function FridgeChefPage() {
     }
   };
   
-  const currentFilterResult = filterCheckResult ? { type: filterCheckResult } : null;
+  const currentFilterResultForComponent = filterCheckResult ? { type: filterCheckResult } : null;
 
 
   return (
@@ -99,7 +116,7 @@ export default function FridgeChefPage() {
                 recipeTitle={generatedRecipe.title}
                 onCheckSuitability={handleCheckSuitability}
                 isLoading={isFiltering}
-                filterResult={currentFilterResult}
+                filterResult={currentFilterResultForComponent}
               />
             )}
           </section>
@@ -109,7 +126,7 @@ export default function FridgeChefPage() {
         </div>
       </main>
       <footer className="text-center p-4 text-muted-foreground text-sm border-t mt-auto">
-        © {new Date().getFullYear()} FridgeChef. Cook with what you have!
+        {t('footerText', { year: new Date().getFullYear() })}
       </footer>
     </div>
   );

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,14 +16,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
-const formSchema = z.object({
+const formSchema = (t: Function) => z.object({
   ingredients: z.string().min(3, {
-    message: 'Please list at least one ingredient.',
+    message: t('ingredientsError'), // Assuming you add 'ingredientsError' to your locale files
   }),
 });
 
-type IngredientFormValues = z.infer<typeof formSchema>;
+type IngredientFormValues = z.infer<ReturnType<typeof formSchema>>;
 
 interface IngredientInputFormProps {
   onSubmit: (values: IngredientFormValues) => Promise<void>;
@@ -30,8 +32,14 @@ interface IngredientInputFormProps {
 }
 
 export function IngredientInputForm({ onSubmit, isLoading }: IngredientInputFormProps) {
+  const { t } = useLanguage();
+  // Add "ingredientsError": "Please list at least one ingredient (min 3 chars)." to en.json
+  // And "ingredientsError": "يرجى ذكر مكون واحد على الأقل (3 أحرف على الأقل)." to ar.json
+  const currentFormSchema = formSchema(t);
+
+
   const form = useForm<IngredientFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(currentFormSchema),
     defaultValues: {
       ingredients: '',
     },
@@ -40,7 +48,7 @@ export function IngredientInputForm({ onSubmit, isLoading }: IngredientInputForm
   return (
     <Card className="shadow-lg">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">What's in your fridge?</CardTitle>
+        <CardTitle className="font-headline text-2xl">{t('whatsInYourFridge')}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -50,10 +58,10 @@ export function IngredientInputForm({ onSubmit, isLoading }: IngredientInputForm
               name="ingredients"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ingredients</FormLabel>
+                  <FormLabel>{t('ingredients')}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., chicken breast, broccoli, soy sauce, rice"
+                      placeholder={t('ingredientsPlaceholder')}
                       className="resize-none min-h-[100px]"
                       {...field}
                     />
@@ -66,10 +74,10 @@ export function IngredientInputForm({ onSubmit, isLoading }: IngredientInputForm
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  {t('generating')}...
                 </>
               ) : (
-                'Generate Recipe'
+                t('generateRecipe')
               )}
             </Button>
           </form>
